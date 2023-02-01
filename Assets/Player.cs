@@ -5,93 +5,18 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     /*
-    #region Gameplay properties
-
-    // Horizontal player keyboard input
-    //  -1 = Left
-    //   0 = No input
-    //   1 = Right
-    private float playerInput = 0;
-
-    // Horizontal player speed
-    [SerializeField] private float speed = 250;
-
-    #endregion
-
-    #region Component references
-
-    private Rigidbody2D rb;
-
-    #endregion
-
-    #region Initialisation methods
-
-    // Initialises this component
-    // (NB: Is called automatically before the first frame update)
-    void Start()
-    {
-        // Get component references
-        rb = GetComponent<Rigidbody2D>();
-    }
-
-    #endregion
-
-    #region Gameplay methods
-
-    // Is called automatically every graphics frame
-    void Update()
-    {
-        // Detect and store horizontal player input   
-        playerInput = Input.GetAxisRaw("Horizontal");
-
-        // NB: Here, you might want to set the player's animation,
-        // e.g. idle or walking
-
-        // Swap the player sprite scale to face the movement direction
-        SwapSprite();
-    }
-
-    // Swap the player sprite scale to face the movement direction
-    void SwapSprite()
-    {
-        // Right
-        if (playerInput > 0)
-        {
-            transform.localScale = new Vector3(
-                -1 * Mathf.Abs(transform.localScale.x),
-                transform.localScale.y,
-                transform.localScale.z
-            );
-        }
-        // Left
-        else if (playerInput < 0)
-        {
-            transform.localScale = new Vector3(
-                1 * Mathf.Abs(transform.localScale.x),
-                transform.localScale.y,
-                transform.localScale.z
-            );
-        }
-    }
-
-    // Is called automatically every physics step
-    void FixedUpdate()
-    {
-        // Move the player horizontally
-        rb.velocity = new Vector2(
-            playerInput * speed * Time.fixedDeltaTime,
-            0
-        );
-    }
-
-    #endregion
-    */
-
-
     private float horizontal;
-    private float speed = 8f;
-    private float jumpingPower = 16f;
+    private float speed = 4f;
+    private float jumpingPower = 8f;
     private bool isFacingRight = true;
+
+    private float coyoteTime = 0.1f;
+    private float coyoteTimeCounter = 0;
+
+    private float jumpBufferTime = 0.1f;
+    private float jumpBufferCounter = 0;
+
+
 
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private Transform groundCheck;
@@ -101,14 +26,35 @@ public class Player : MonoBehaviour
     {
         horizontal = Input.GetAxisRaw("Horizontal");
 
-        if (Input.GetButtonDown("Jump") && IsGrounded())
+        if (IsGrounded())
+        {
+            coyoteTimeCounter = coyoteTime;
+        }
+        else
+        {
+            coyoteTimeCounter-=Time.deltaTime;
+        }
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            jumpBufferCounter-=Time.deltaTime;
+        }
+
+
+        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+            jumpBufferCounter = 0;
         }
 
         if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f)
         {
             rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * 0.5f);
+            coyoteTimeCounter = 0;
         }
 
         Flip();  
@@ -133,5 +79,92 @@ public class Player : MonoBehaviour
             localScale.x *= -1f;
             transform.localScale = localScale;
         }
+    }
+    */
+
+    private float horizontal;
+    private float speed = 8f;
+    private float jumpingPower = 16f;
+    private bool isFacingRight = true;
+
+    private bool isJumping;
+
+    private float coyoteTime = 0.2f;
+    private float coyoteTimeCounter;
+
+    private float jumpBufferTime = 0.2f;
+    private float jumpBufferCounter;
+
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private LayerMask groundLayer;
+
+    private void Update()
+    {
+        horizontal = Input.GetAxisRaw("Horizontal");
+
+        if (IsGrounded())
+        {
+            coyoteTimeCounter = coyoteTime;
+        }
+        else
+        {
+            coyoteTimeCounter -= Time.deltaTime;
+        }
+
+        if (Input.GetButtonDown("Jump") && IsGrounded())
+        {
+            jumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+
+        if (coyoteTimeCounter > 0f && jumpBufferCounter > 0f && !isJumping)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+
+            jumpBufferCounter = 0f;
+
+            StartCoroutine(JumpCooldown());
+        }
+
+        if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * 0.1f);
+
+            coyoteTimeCounter = 0f;
+        }
+
+        Flip();
+    }
+
+    private void FixedUpdate()
+    {
+        rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
+    }
+
+    private bool IsGrounded()
+    {
+        return Physics2D.OverlapCircle(groundCheck.position, 0.5f, groundLayer);
+    }
+
+    private void Flip()
+    {
+        if (isFacingRight && horizontal < 0f || !isFacingRight && horizontal > 0f)
+        {
+            Vector3 localScale = transform.localScale;
+            isFacingRight = !isFacingRight;
+            localScale.x *= -1f;
+            transform.localScale = localScale;
+        }
+    }
+
+    private IEnumerator JumpCooldown()
+    {
+        isJumping = true;
+        yield return new WaitForSeconds(0.1f);
+        isJumping = false;
     }
 }
